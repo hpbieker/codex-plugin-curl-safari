@@ -24,11 +24,9 @@ Requires Xcode and Go. Xcode writes the app product directly to the stable
 `CurlSafariServer.app` path in the repository root; `build.sh` does not create
 the bundle or generate its `Info.plist`.
 
-The Xcode target uses ad-hoc signing by default, matching the currently built
-`OutlookLocalServer.app` on this machine. This needs no development team, but
-macOS may require Full Disk Access to be granted again after a rebuild. A valid
-`Apple Development` identity can be configured in Xcode later to retain a
-certificate-backed identity across rebuilds.
+The Xcode target uses automatic Apple Development signing to keep the app
+identity stable across rebuilds. If the signing identity changes, macOS may
+require Full Disk Access to be granted again.
 
 ## Full Disk Access
 
@@ -46,6 +44,14 @@ System Settings.
 ## Start Server
 
 ```bash
+open -a "$PWD/CurlSafariServer.app"
+```
+
+After rebuilding, restart the server so the running process uses the new
+executable:
+
+```bash
+pkill -f "$PWD/CurlSafariServer.app/Contents/MacOS/curl-safari-server" || true
 open -a "$PWD/CurlSafariServer.app"
 ```
 
