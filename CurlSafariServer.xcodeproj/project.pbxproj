@@ -1,0 +1,215 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* main.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000002 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000004 /* CurlSafariServer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CurlSafariServer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B10000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B10000000000000000000006 = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000007 /* CurlSafariServer */,
+				B10000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B10000000000000000000007 /* CurlSafariServer */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000002 /* main.swift */,
+				B10000000000000000000003 /* Info.plist */,
+			);
+			path = CurlSafariServer;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000004 /* CurlSafariServer.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B10000000000000000000009 /* CurlSafariServer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1000000000000000000000A /* Build configuration list for PBXNativeTarget "CurlSafariServer" */;
+			buildPhases = (
+				B1000000000000000000000B /* Sources */,
+				B10000000000000000000005 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CurlSafariServer;
+			productName = CurlSafariServer;
+			productReference = B10000000000000000000004 /* CurlSafariServer.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B1000000000000000000000C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					B10000000000000000000009 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = B1000000000000000000000D /* Build configuration list for PBXProject "CurlSafariServer" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B10000000000000000000006;
+			productRefGroup = B10000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B10000000000000000000009 /* CurlSafariServer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B1000000000000000000000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		B10000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)";
+				CURRENT_PROJECT_VERSION = 1;
+				EXECUTABLE_NAME = "curl-safari-server";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CurlSafariServer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.hpbieker.CurlSafariServer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B10000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)";
+				CURRENT_PROJECT_VERSION = 1;
+				EXECUTABLE_NAME = "curl-safari-server";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CurlSafariServer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = no.hpbieker.CurlSafariServer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B1000000000000000000000A /* Build configuration list for PBXNativeTarget "CurlSafariServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000000000000000000010 /* Debug */,
+				B10000000000000000000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1000000000000000000000D /* Build configuration list for PBXProject "CurlSafariServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000000000000000000000E /* Debug */,
+				B1000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B1000000000000000000000C /* Project object */;
+}

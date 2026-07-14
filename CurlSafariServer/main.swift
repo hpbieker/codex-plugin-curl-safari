@@ -1,13 +1,27 @@
+import Darwin
 import Foundation
+
+let environment = ProcessInfo.processInfo.environment
+let socketPath = environment["CURL_SAFARI_SOCKET_PATH"] ?? "/private/tmp/curl-safari.sock"
+let maximumRequestBytes = 65_536
+let clientTimeoutSeconds = max(
+    1,
+    Int(environment["CURL_SAFARI_CLIENT_TIMEOUT_SECONDS"] ?? "") ?? 10
+)
 
 let safariCookiePaths = [
     "\(NSHomeDirectory())/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies",
     "\(NSHomeDirectory())/Library/Cookies/Cookies.binarycookies",
 ]
 let macAbsoluteTimeOffset = 978_307_200.0
-let rootDir = URL(fileURLWithPath: "/private/tmp/curl-safari", isDirectory: true)
-let requestDir = rootDir.appendingPathComponent("requests", isDirectory: true)
-let responseDir = rootDir.appendingPathComponent("responses", isDirectory: true)
+let rootDir = URL(
+    fileURLWithPath: environment["CURL_SAFARI_ROOT_DIR"] ?? "/private/tmp/curl-safari",
+    isDirectory: true
+)
+
+struct ServerError: Error, CustomStringConvertible {
+    let description: String
+}
 
 func log(_ message: String) {
     print(message)
@@ -30,9 +44,13 @@ struct SafariCookie {
 
 struct FetchRequest: Decodable {
     let op: String
-    let domain: String
+    let domain: String?
     let url: String?
     let ttl_seconds: Int?
+}
+
+func systemError(_ operation: String) -> ServerError {
+    ServerError(description: "\(operation): \(String(cString: strerror(errno)))")
 }
 
 func readUInt32BE(_ data: Data, _ offset: Int) throws -> UInt32 {
@@ -122,7 +140,7 @@ func parseBinaryCookies(_ url: URL) throws -> [SafariCookie] {
     } catch {
         throw NSError(domain: "curl-safari-server", code: 5, userInfo: [
             NSLocalizedDescriptionKey: """
-            macOS denied access to \(url.path). Full Disk Access is not granted via an automatic prompt for this CLI helper. Add curl-safari-server manually in System Settings -> Privacy & Security -> Full Disk Access, then restart the server.
+            macOS denied access to \(url.path). Grant Full Disk Access to CurlSafariServer.app in System Settings -> Privacy & Security -> Full Disk Access, then restart the server.
             """
         ])
     }
@@ -184,11 +202,15 @@ func pathMatches(cookiePath: String, requestPath: String) -> Bool {
     return requestPath.hasPrefix(cookiePath.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/")
 }
 
-func matchingCookies(_ cookies: [SafariCookie], request: FetchRequest) throws -> [SafariCookie] {
-    var host = try normalizeDomain(request.domain)
+func matchingCookies(
+    _ cookies: [SafariCookie],
+    domain: String,
+    requestURL: String?
+) throws -> [SafariCookie] {
+    var host = try normalizeDomain(domain)
     var scheme = "https"
     var path = "/"
-    if let urlString = request.url, let url = URL(string: urlString), let urlHost = url.host {
+    if let urlString = requestURL, let url = URL(string: urlString), let urlHost = url.host {
         host = urlHost.lowercased()
         scheme = url.scheme?.lowercased() ?? "https"
         path = url.path.isEmpty ? "/" : url.path
@@ -250,35 +272,56 @@ func writeCookieJar(_ cookies: [SafariCookie], to output: URL, ttlSeconds: Int) 
     try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: output.path)
 }
 
-func ensureDirs() throws {
-    for dir in [rootDir, requestDir, responseDir] {
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
-    }
+func ensureRootDir() throws {
+    try FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+    try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: rootDir.path)
 }
 
-func responseJSON(_ response: [String: Any]) -> Data {
-    (try? JSONSerialization.data(withJSONObject: response, options: [.sortedKeys])) ?? Data("{}".utf8)
+func responseData(_ response: [String: Any]) -> Data {
+    var data = (try? JSONSerialization.data(withJSONObject: response, options: [.sortedKeys]))
+        ?? Data("{}".utf8)
+    data.append(0x0A)
+    return data
 }
 
-func processRequest(at processingURL: URL) -> [String: Any] {
+func processRequest(_ data: Data) -> [String: Any] {
     do {
-        let data = try Data(contentsOf: processingURL)
         let request = try JSONDecoder().decode(FetchRequest.self, from: data)
+        if request.op == "ping" {
+            return [
+                "ok": true,
+                "socket": socketPath,
+                "server_pid": Int32(getpid()),
+            ]
+        }
         guard request.op == "fetch" else {
             throw NSError(domain: "curl-safari-server", code: 4, userInfo: [
-                NSLocalizedDescriptionKey: "unsupported operation"
+                NSLocalizedDescriptionKey: "unsupported operation: \(request.op)"
+            ])
+        }
+        guard let domain = request.domain else {
+            throw NSError(domain: "curl-safari-server", code: 6, userInfo: [
+                NSLocalizedDescriptionKey: "fetch requires domain"
             ])
         }
         let cookieFile = try resolveCookieFile()
         let ttl = request.ttl_seconds ?? 600
-        let cookies = try matchingCookies(parseBinaryCookies(cookieFile), request: request)
-        let output = try safeOutputPath(domain: request.domain)
+        guard ttl > 0 else {
+            throw NSError(domain: "curl-safari-server", code: 7, userInfo: [
+                NSLocalizedDescriptionKey: "ttl_seconds must be greater than zero"
+            ])
+        }
+        let cookies = try matchingCookies(
+            parseBinaryCookies(cookieFile),
+            domain: domain,
+            requestURL: request.url
+        )
+        let output = try safeOutputPath(domain: domain)
         try writeCookieJar(cookies, to: output, ttlSeconds: ttl)
-        log("wrote \(cookies.count) cookies for \(request.domain) to \(output.path)")
+        log("wrote \(cookies.count) cookies for \(domain) to \(output.path)")
         return [
             "ok": true,
-            "domain": request.domain,
+            "domain": domain,
             "path": output.path,
             "count": cookies.count,
             "ttl_seconds": ttl,
@@ -293,42 +336,181 @@ func processRequest(at processingURL: URL) -> [String: Any] {
     }
 }
 
-func serve() throws {
-    try ensureDirs()
-    log("curl-safari-server watching \(requestDir.path)")
+func readRequest(from fileDescriptor: Int32) throws -> Data {
+    var request = Data()
+    var buffer = [UInt8](repeating: 0, count: 8_192)
+
     while true {
-        autoreleasepool {
-            let files = (try? FileManager.default.contentsOfDirectory(
-                at: requestDir,
-                includingPropertiesForKeys: nil
-            )) ?? []
-            for requestURL in files where requestURL.lastPathComponent.hasSuffix(".request.json") {
-                let requestID = requestURL.lastPathComponent.components(separatedBy: ".").first ?? UUID().uuidString
-                let processingURL = requestDir.appendingPathComponent("\(requestID).processing")
-                do {
-                    try FileManager.default.moveItem(at: requestURL, to: processingURL)
-                } catch {
-                    continue
-                }
-                let response = processRequest(at: processingURL)
-                let responseURL = responseDir.appendingPathComponent("\(requestID).response.json")
-                let tmpResponseURL = responseURL.appendingPathExtension("tmp")
-                do {
-                    var data = responseJSON(response)
-                    data.append(0x0A)
-                    try data.write(to: tmpResponseURL, options: .atomic)
-                    try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmpResponseURL.path)
-                    if FileManager.default.fileExists(atPath: responseURL.path) {
-                        try FileManager.default.removeItem(at: responseURL)
-                    }
-                    try FileManager.default.moveItem(at: tmpResponseURL, to: responseURL)
-                    try? FileManager.default.removeItem(at: processingURL)
-                } catch {
-                    log("failed to write response: \(error.localizedDescription)")
-                }
+        let bytesRead = buffer.withUnsafeMutableBytes { bytes in
+            Darwin.read(fileDescriptor, bytes.baseAddress, bytes.count)
+        }
+        if bytesRead > 0 {
+            request.append(contentsOf: buffer.prefix(Int(bytesRead)))
+            if request.count > maximumRequestBytes {
+                throw ServerError(description: "request exceeds \(maximumRequestBytes) bytes")
+            }
+            if let newline = request.firstIndex(of: 0x0A) {
+                request = request[..<newline]
+                break
+            }
+        } else if bytesRead == 0 {
+            break
+        } else if errno != EINTR {
+            throw systemError("read")
+        }
+    }
+
+    guard !request.isEmpty else {
+        throw ServerError(description: "empty request")
+    }
+    return request
+}
+
+func writeAll(_ data: Data, to fileDescriptor: Int32) throws {
+    try data.withUnsafeBytes { bytes in
+        var offset = 0
+        while offset < bytes.count {
+            let written = Darwin.write(
+                fileDescriptor,
+                bytes.baseAddress?.advanced(by: offset),
+                bytes.count - offset
+            )
+            if written > 0 {
+                offset += written
+            } else if written < 0 && errno == EINTR {
+                continue
+            } else {
+                throw systemError("write")
             }
         }
-        Thread.sleep(forTimeInterval: 0.2)
+    }
+}
+
+func removeStaleSocket() throws {
+    var info = stat()
+    if lstat(socketPath, &info) == 0 {
+        guard info.st_uid == geteuid() else {
+            throw ServerError(description: "existing socket path is owned by another user")
+        }
+        guard (info.st_mode & S_IFMT) == S_IFSOCK else {
+            throw ServerError(description: "refusing to remove non-socket path at \(socketPath)")
+        }
+        guard unlink(socketPath) == 0 else { throw systemError("unlink") }
+    } else if errno != ENOENT {
+        throw systemError("lstat")
+    }
+}
+
+func createServerSocket() throws -> Int32 {
+    try removeStaleSocket()
+
+    let fileDescriptor = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+    guard fileDescriptor >= 0 else { throw systemError("socket") }
+    do {
+        var address = sockaddr_un()
+        address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
+        address.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = socketPath.utf8CString
+        let pathCapacity = MemoryLayout.size(ofValue: address.sun_path)
+        guard pathBytes.count <= pathCapacity else {
+            throw ServerError(description: "socket path is too long")
+        }
+        withUnsafeMutableBytes(of: &address.sun_path) { destination in
+            for (index, byte) in pathBytes.enumerated() {
+                destination[index] = UInt8(bitPattern: byte)
+            }
+        }
+
+        let bindResult = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fileDescriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard bindResult == 0 else { throw systemError("bind") }
+        guard chmod(socketPath, S_IRUSR | S_IWUSR) == 0 else { throw systemError("chmod") }
+        guard Darwin.listen(fileDescriptor, 16) == 0 else { throw systemError("listen") }
+        return fileDescriptor
+    } catch {
+        Darwin.close(fileDescriptor)
+        try? FileManager.default.removeItem(atPath: socketPath)
+        throw error
+    }
+}
+
+func handleClient(_ fileDescriptor: Int32) {
+    var noSigPipe: Int32 = 1
+    _ = withUnsafePointer(to: &noSigPipe) {
+        setsockopt(
+            fileDescriptor,
+            SOL_SOCKET,
+            SO_NOSIGPIPE,
+            $0,
+            socklen_t(MemoryLayout<Int32>.size)
+        )
+    }
+
+    var timeout = timeval(tv_sec: clientTimeoutSeconds, tv_usec: 0)
+    _ = withUnsafePointer(to: &timeout) {
+        setsockopt(
+            fileDescriptor,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            $0,
+            socklen_t(MemoryLayout<timeval>.size)
+        )
+    }
+    _ = withUnsafePointer(to: &timeout) {
+        setsockopt(
+            fileDescriptor,
+            SOL_SOCKET,
+            SO_SNDTIMEO,
+            $0,
+            socklen_t(MemoryLayout<timeval>.size)
+        )
+    }
+
+    var peerUID: uid_t = 0
+    var peerGID: gid_t = 0
+    guard getpeereid(fileDescriptor, &peerUID, &peerGID) == 0 else {
+        try? writeAll(responseData(["ok": false, "error": "could not identify peer"]), to: fileDescriptor)
+        return
+    }
+    guard peerUID == geteuid() else {
+        try? writeAll(responseData(["ok": false, "error": "peer uid is not allowed"]), to: fileDescriptor)
+        return
+    }
+
+    do {
+        let request = try readRequest(from: fileDescriptor)
+        try writeAll(responseData(processRequest(request)), to: fileDescriptor)
+    } catch {
+        try? writeAll(
+            responseData(["ok": false, "error": String(describing: error)]),
+            to: fileDescriptor
+        )
+    }
+}
+
+func serve() throws {
+    _ = umask(0o077)
+    try ensureRootDir()
+    let server = try createServerSocket()
+    defer {
+        Darwin.close(server)
+        unlink(socketPath)
+    }
+
+    log("curl-safari-server listening on \(socketPath)")
+    while true {
+        let client = Darwin.accept(server, nil, nil)
+        if client < 0 {
+            if errno == EINTR { continue }
+            throw systemError("accept")
+        }
+        autoreleasepool {
+            handleClient(client)
+            Darwin.close(client)
+        }
     }
 }
 
@@ -348,13 +530,24 @@ func checkAccess() -> Int32 {
     }
 }
 
+func requestCookieAccessOnLaunch() {
+    do {
+        let cookieFile = try resolveCookieFile()
+        _ = try Data(contentsOf: cookieFile)
+        log("Safari cookie access is available")
+    } catch {
+        log("Safari cookie access is not available. Grant Full Disk Access to CurlSafariServer.app, then restart it: \(error.localizedDescription)")
+    }
+}
+
 if CommandLine.arguments.dropFirst().contains("--check-access") {
     exit(checkAccess())
 }
 
 do {
+    requestCookieAccessOnLaunch()
     try serve()
 } catch {
-    fputs("curl-safari-server: \(error.localizedDescription)\n", stderr)
+    fputs("curl-safari-server: \(String(describing: error))\n", stderr)
     exit(1)
 }

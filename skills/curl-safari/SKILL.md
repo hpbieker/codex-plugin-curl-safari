@@ -54,7 +54,17 @@ Restart it with:
 pkill -f curl-safari-server; open -a "/Users/hanspetterbieker/sources/codex-plugin-curl-safari/CurlSafariServer.app"
 ```
 
-If macOS denies cookie access, the fix is to grant Full Disk Access to `CurlSafariServer.app`, then restart the server.
+The client talks to the server over `/private/tmp/curl-safari.sock`. The server
+creates the socket with mode `0600` and rejects clients from other user IDs. If
+the CLI reports that the socket is missing or refuses the connection, start or
+restart `CurlSafariServer.app`; do not create request files under
+`/private/tmp/curl-safari`.
+
+If macOS denies access to Safari's cookie database, grant Full Disk Access to
+`CurlSafariServer.app` under System Settings -> Privacy & Security -> Full Disk
+Access, then restart the server. macOS does not provide an automatic permission
+prompt for Full Disk Access. Grant access to the app bundle, not the CLI or the
+inner executable.
 
 ## Cookie Safety
 

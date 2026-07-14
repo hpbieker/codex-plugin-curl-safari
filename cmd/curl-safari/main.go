@@ -1,23 +1,22 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
-const rootDir = "/private/tmp/curl-safari"
-
-var requestDir = filepath.Join(rootDir, "requests")
-var responseDir = filepath.Join(rootDir, "responses")
+const (
+	defaultSocketPath    = "/private/tmp/curl-safari.sock"
+	maximumResponseBytes = 1_048_576
+)
 
 type fetchRequest struct {
 	Op         string `json:"op"`
@@ -82,80 +81,48 @@ func runCurlMetaCommand(args []string) {
 	}
 }
 
-func randomID() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
+func serverSocketPath() string {
+	if path := os.Getenv("CURL_SAFARI_SOCKET_PATH"); path != "" {
+		return path
 	}
-	return hex.EncodeToString(buf), nil
-}
-
-func ensureDirs() error {
-	for _, dir := range []string{rootDir, requestDir, responseDir} {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return err
-		}
-		_ = os.Chmod(dir, 0o700)
-	}
-	return nil
-}
-
-func writeAtomic(path string, data []byte, mode os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		return err
-	}
-	_ = os.Chmod(tmp, mode)
-	return os.Rename(tmp, path)
+	return defaultSocketPath
 }
 
 func requestCookieJar(domain, requestURL string, ttl int, timeout time.Duration) (string, error) {
-	if err := ensureDirs(); err != nil {
-		return "", err
-	}
-	id, err := randomID()
-	if err != nil {
-		return "", err
-	}
 	req := fetchRequest{Op: "fetch", Domain: domain, URL: requestURL, TTLSeconds: ttl}
-	data, err := json.Marshal(req)
+	socketPath := serverSocketPath()
+	connection, err := net.DialTimeout("unix", socketPath, timeout)
 	if err != nil {
+		return "", fmt.Errorf(
+			"server is unavailable at %s: %w; start it with: open -a CurlSafariServer.app",
+			socketPath,
+			err,
+		)
+	}
+	defer connection.Close()
+	if err := connection.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return "", err
 	}
 
-	reqPath := filepath.Join(requestDir, id+".request.json")
-	respPath := filepath.Join(responseDir, id+".response.json")
-	if err := writeAtomic(reqPath, append(data, '\n'), 0o600); err != nil {
+	if err := json.NewEncoder(connection).Encode(req); err != nil {
 		return "", err
 	}
-	defer os.Remove(reqPath)
 
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		respData, err := os.ReadFile(respPath)
-		if err == nil {
-			_ = os.Remove(respPath)
-			var resp fetchResponse
-			if err := json.Unmarshal(respData, &resp); err != nil {
-				return "", err
-			}
-			if !resp.OK {
-				if resp.ServerPID != 0 {
-					return "", fmt.Errorf("%s [server pid %d]", resp.Error, resp.ServerPID)
-				}
-				return "", errors.New(resp.Error)
-			}
-			if resp.Path == "" {
-				return "", errors.New("server returned empty cookie jar path")
-			}
-			return resp.Path, nil
-		}
-		if !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
-		time.Sleep(100 * time.Millisecond)
+	var resp fetchResponse
+	limitedResponse := io.LimitReader(connection, maximumResponseBytes+1)
+	if err := json.NewDecoder(limitedResponse).Decode(&resp); err != nil {
+		return "", fmt.Errorf("invalid response from server: %w", err)
 	}
-	return "", fmt.Errorf("server did not respond within %s; start it with: open -a CurlSafariServer.app", timeout)
+	if !resp.OK {
+		if resp.ServerPID != 0 {
+			return "", fmt.Errorf("%s [server pid %d]", resp.Error, resp.ServerPID)
+		}
+		return "", errors.New(resp.Error)
+	}
+	if resp.Path == "" {
+		return "", errors.New("server returned empty cookie jar path")
+	}
+	return resp.Path, nil
 }
 
 func findURL(args []string) string {

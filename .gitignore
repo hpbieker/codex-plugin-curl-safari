@@ -1,5 +1,7 @@
 .DS_Store
 .build/
 bin/curl-safari
+CurlSafariServer.app/
+CurlSafariServer.swiftmodule/
 *.cookies
 *.tmp
