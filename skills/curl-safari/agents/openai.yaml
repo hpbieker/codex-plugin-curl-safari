@@ -1,0 +1,4 @@
+interface:
+  display_name: "Curl Safari"
+  short_description: "Fetch Safari-authenticated pages with curl"
+  default_prompt: "Use $curl-safari to fetch this logged-in webpage through Safari cookies."

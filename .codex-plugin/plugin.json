@@ -1,0 +1,30 @@
+{
+  "name": "curl-safari",
+  "version": "0.1.0+codex.20260714085224",
+  "description": "Use Safari login cookies with curl through a local privileged helper app.",
+  "author": {
+    "name": "Hans Petter Bieker"
+  },
+  "keywords": [
+    "curl",
+    "safari",
+    "cookies",
+    "authenticated"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Curl Safari",
+    "shortDescription": "Fetch Safari-authenticated pages with curl",
+    "longDescription": "Use the local curl-safari CLI and helper app to fetch logged-in web pages and HTTP responses with Safari cookies, without giving Codex direct Full Disk Access.",
+    "developerName": "Hans Petter Bieker",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Use Safari cookies to fetch this page.",
+      "Inspect this logged-in page with curl-safari.",
+      "Check whether this API accepts Safari cookies."
+    ]
+  }
+}

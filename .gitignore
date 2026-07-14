@@ -1,0 +1,5 @@
+.DS_Store
+.build/
+bin/curl-safari
+*.cookies
+*.tmp
