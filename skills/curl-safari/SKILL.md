@@ -5,7 +5,10 @@ description: Use the local curl-safari CLI to fetch logged-in web pages and HTTP
 
 # Curl Safari
 
-Use `/Users/hanspetterbieker/sources/codex-plugin-curl-safari/bin/curl-safari` instead of plain `curl` when a request likely needs the user's Safari login cookies.
+Resolve `CURL_SAFARI_ROOT` to the plugin root (two directories above this
+`SKILL.md`), then use `$CURL_SAFARI_ROOT/bin/curl-safari` instead of plain
+`curl` when a request likely needs the user's Safari login cookies. Do not
+assume a particular username or plugin installation directory.
 
 ## Workflow
 
@@ -13,13 +16,13 @@ Use `/Users/hanspetterbieker/sources/codex-plugin-curl-safari/bin/curl-safari` i
 2. Pass normal curl arguments through unchanged:
 
 ```bash
-/Users/hanspetterbieker/sources/codex-plugin-curl-safari/bin/curl-safari -L "https://example.com/account"
+"$CURL_SAFARI_ROOT/bin/curl-safari" -L "https://example.com/account"
 ```
 
 3. Save responses to `/private/tmp` or the active workspace when inspection is needed:
 
 ```bash
-/Users/hanspetterbieker/sources/codex-plugin-curl-safari/bin/curl-safari -L "https://example.com/account" -o /private/tmp/account.html
+"$CURL_SAFARI_ROOT/bin/curl-safari" -L "https://example.com/account" -o /private/tmp/account.html
 ```
 
 4. Use regular `curl` for public pages, unauthenticated APIs, or requests where cookies are unnecessary.
@@ -31,7 +34,7 @@ When a logged-in page loads data from an API on another hostname, call `curl-saf
 Example:
 
 ```bash
-/Users/hanspetterbieker/sources/codex-plugin-curl-safari/bin/curl-safari -L "https://api.example.com/private/routes"
+"$CURL_SAFARI_ROOT/bin/curl-safari" -L "https://api.example.com/private/routes"
 ```
 
 If the API still returns 401/403, inspect whether a `Cookie` header was actually sent. A login that works on one hostname, such as `www.example.com`, may not produce any usable Safari cookies for another registrable domain or API hostname, such as `api.example.net`. In that case, `curl-safari` is working as designed but the API is not authenticated by the page host's cookies.
@@ -45,13 +48,13 @@ Komoot is a known example: Safari cookie auth can work for `www.komoot.com` page
 `curl-safari` depends on the local server app:
 
 ```bash
-open -a "/Users/hanspetterbieker/sources/codex-plugin-curl-safari/CurlSafariServer.app"
+open -a "$CURL_SAFARI_ROOT/CurlSafariServer.app"
 ```
 
 Restart it with:
 
 ```bash
-pkill -f curl-safari-server; open -a "/Users/hanspetterbieker/sources/codex-plugin-curl-safari/CurlSafariServer.app"
+pkill -f curl-safari-server; open -a "$CURL_SAFARI_ROOT/CurlSafariServer.app"
 ```
 
 The client talks to the server over `/private/tmp/curl-safari.sock`. The server

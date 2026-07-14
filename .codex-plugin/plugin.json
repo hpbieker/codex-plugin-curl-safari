@@ -1,6 +1,6 @@
 {
   "name": "curl-safari",
-  "version": "0.1.0+codex.20260714095708",
+  "version": "0.1.0+codex.20260714124318",
   "description": "Use Safari login cookies with curl through a local privileged helper app.",
   "author": {
     "name": "Hans Petter Bieker"
