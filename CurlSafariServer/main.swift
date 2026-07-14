@@ -514,26 +514,6 @@ func serve() throws {
     }
 }
 
-func checkAccess() -> Int32 {
-    let executable = CommandLine.arguments.first ?? "(unknown)"
-    print("executable=\(executable)")
-    do {
-        let cookieFile = try resolveCookieFile()
-        print("cookie_file=\(cookieFile.path)")
-        _ = try Data(contentsOf: cookieFile)
-        print("access=ok")
-        return 0
-    } catch {
-        print("access=denied")
-        print("error=\(error.localizedDescription)")
-        return 1
-    }
-}
-
-if CommandLine.arguments.dropFirst().contains("--check-access") {
-    exit(checkAccess())
-}
-
 do {
     try serve()
 } catch {
