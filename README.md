@@ -49,9 +49,6 @@ System Settings.
 open -a "$PWD/CurlSafariServer.app"
 ```
 
-The app probes read access during launch and logs whether Full Disk Access is
-available before the server begins accepting clients.
-
 The server creates `/private/tmp/curl-safari.sock` with mode `0600` and only
 accepts clients with the same effective user ID. Requests and responses are
 newline-delimited JSON, with one request per connection. The socket path can be

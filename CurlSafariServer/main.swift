@@ -530,22 +530,11 @@ func checkAccess() -> Int32 {
     }
 }
 
-func requestCookieAccessOnLaunch() {
-    do {
-        let cookieFile = try resolveCookieFile()
-        _ = try Data(contentsOf: cookieFile)
-        log("Safari cookie access is available")
-    } catch {
-        log("Safari cookie access is not available. Grant Full Disk Access to CurlSafariServer.app, then restart it: \(error.localizedDescription)")
-    }
-}
-
 if CommandLine.arguments.dropFirst().contains("--check-access") {
     exit(checkAccess())
 }
 
 do {
-    requestCookieAccessOnLaunch()
     try serve()
 } catch {
     fputs("curl-safari-server: \(String(describing: error))\n", stderr)
