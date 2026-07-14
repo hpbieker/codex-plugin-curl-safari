@@ -3,4 +3,4 @@
 bin/curl-safari
 CurlSafariServer.app/
 CurlSafariServer.swiftmodule/
-CurlSafariServer.xcodeproj/xcuserdata/
+xcuserdata/
