@@ -27,7 +27,7 @@ type fetchRequest struct {
 
 type fetchResponse struct {
 	OK        bool   `json:"ok"`
-	Path      string `json:"path,omitempty"`
+	CookieJar string `json:"cookie_jar,omitempty"`
 	Error     string `json:"error,omitempty"`
 	ServerPID int    `json:"server_pid,omitempty"`
 }
@@ -119,10 +119,10 @@ func requestCookieJar(domain, requestURL string, ttl int, timeout time.Duration)
 		}
 		return "", errors.New(resp.Error)
 	}
-	if resp.Path == "" {
-		return "", errors.New("server returned empty cookie jar path")
+	if resp.CookieJar == "" {
+		return "", errors.New("server returned empty cookie jar")
 	}
-	return resp.Path, nil
+	return resp.CookieJar, nil
 }
 
 func findURL(args []string) string {
@@ -132,6 +132,39 @@ func findURL(args []string) string {
 		}
 	}
 	return ""
+}
+
+func runCurlWithCookieJar(jar string, curlArgs []string) int {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "curl-safari: could not create cookie pipe: %v\n", err)
+		return 1
+	}
+	defer reader.Close()
+
+	cmd := exec.Command("curl", append([]string{"-b", "/dev/fd/3"}, curlArgs...)...)
+	cmd.ExtraFiles = []*os.File{reader}
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		writer.Close()
+		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
+		return 1
+	}
+	reader.Close()
+	go func() {
+		_, _ = io.WriteString(writer, jar)
+		_ = writer.Close()
+	}()
+	if err := cmd.Wait(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return exitErr.ExitCode()
+		}
+		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 func main() {
@@ -162,16 +195,5 @@ func main() {
 		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
 		os.Exit(1)
 	}
-
-	cmd := exec.Command("curl", append([]string{"-b", jar}, curlArgs...)...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			os.Exit(exitErr.ExitCode())
-		}
-		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
-		os.Exit(1)
-	}
+	os.Exit(runCurlWithCookieJar(jar, curlArgs))
 }

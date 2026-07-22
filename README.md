@@ -1,15 +1,28 @@
 # Curl Safari
 
-Use Safari cookies with `curl` without giving Codex or other sandboxed clients
-Full Disk Access.
+Use ordinary `curl` commands for websites where you are already logged in
+through Safari. `curl-safari` automatically supplies matching Safari cookies
+without giving Codex or other sandboxed clients Full Disk Access.
+
+## Quick Start
+
+```bash
+open -a "$PWD/CurlSafariServer.app"
+bin/curl-safari -L https://example.com/account
+```
+
+Give `CurlSafariServer.app` Full Disk Access when setting it up for the first
+time. `curl-safari` supplies matching Safari cookies; it does not copy bearer
+tokens, localStorage, or other browser-only authentication.
 
 ## Components
 
 - `CurlSafariServer.app`: privileged Swift server app. This is the only
   process that reads Safari's `Cookies.binarycookies`. It accepts requests on
   `/private/tmp/curl-safari.sock`.
-- `bin/curl-safari`: unprivileged Go CLI. It calls `curl` with a temporary
-  domain-scoped cookie jar obtained through the Unix socket.
+- `bin/curl-safari`: unprivileged Go CLI. It receives a domain-scoped cookie
+  jar through the Unix socket and pipes it directly to `curl` without writing
+  it to disk.
 - `cmd/curl-safari/`: Go source for the CLI.
 - `CurlSafariServer/`: Swift source and version-controlled `Info.plist`.
 - `CurlSafariServer.xcodeproj`: standard Xcode app project and shared scheme.
@@ -67,13 +80,13 @@ bin/curl-safari -L https://www.finn.no/saved-searches
 ```
 
 `curl-safari` finds the request URL, asks the local server for a matching
-Safari cookie jar, then runs:
+Safari cookie jar, and gives it to `curl` through an anonymous pipe:
 
 ```bash
-curl -b <temporary-cookie-jar> ...
+curl -b /dev/fd/3 ...
 ```
 
-It does not print cookie values.
+It does not write or print cookie values.
 
 ## Safety Shape
 
@@ -83,6 +96,7 @@ It does not print cookie values.
 - no request or response files are used for client/server communication
 - no export-all command
 - cookie jars are domain scoped
-- cookie jars are written with `0600`
-- default jar TTL is 600 seconds
+- cookie jars travel over the private socket and an anonymous pipe
+- cookie values are never written to disk by `curl-safari`
+- cookie expiry is capped at 600 seconds
 - normal CLI output never prints cookie values

@@ -1,6 +1,6 @@
 ---
 name: curl-safari
-description: Use the local curl-safari CLI to fetch logged-in web pages and HTTP responses with the user's Safari cookies. Use when Codex needs to download or inspect pages that require the user to be logged in through Safari, especially when curl is faster or more scriptable than driving a browser or Chrome, for sites such as FINN.no, account pages, saved searches, favorites, dashboards, or authenticated HTML/API endpoints.
+description: Use ordinary curl commands with the user's existing Safari login. The local curl-safari CLI automatically supplies matching Safari cookies and passes normal curl arguments through unchanged. Use when Codex needs to download or inspect pages that require the user to be logged in through Safari, especially when curl is faster or more scriptable than driving a browser or Chrome, for sites such as FINN.no, account pages, saved searches, favorites, dashboards, or authenticated HTML/API endpoints.
 ---
 
 # Curl Safari
@@ -57,11 +57,12 @@ Restart it with:
 pkill -f curl-safari-server; open -a "$CURL_SAFARI_ROOT/CurlSafariServer.app"
 ```
 
-The client talks to the server over `/private/tmp/curl-safari.sock`. The server
-creates the socket with mode `0600` and rejects clients from other user IDs. If
+The client receives a domain-scoped cookie jar from the server over
+`/private/tmp/curl-safari.sock` and pipes it to `curl` without writing cookie
+values to disk. The server creates the socket with mode `0600` and rejects
+clients from other user IDs. If
 the CLI reports that the socket is missing or refuses the connection, start or
-restart `CurlSafariServer.app`; do not create request files under
-`/private/tmp/curl-safari`.
+restart `CurlSafariServer.app`.
 
 If macOS denies access to Safari's cookie database, grant Full Disk Access to
 `CurlSafariServer.app` under System Settings -> Privacy & Security -> Full Disk
@@ -73,5 +74,5 @@ inner executable.
 
 - Do not print, paste, summarize, or save cookie values in chat.
 - Do not ask the user to copy cookies manually unless `curl-safari` cannot work.
-- Do not add explicit `Cookie:` headers when `curl-safari` can provide cookies through its temporary cookie jar.
+- Do not add explicit `Cookie:` headers when `curl-safari` can provide cookies through its private socket and pipe.
 - Treat downloaded authenticated pages as sensitive; store them only when needed and prefer `/private/tmp` for temporary inspection.

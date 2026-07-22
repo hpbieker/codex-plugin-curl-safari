@@ -27,7 +27,6 @@ class CurlSafariServerTests(unittest.TestCase):
         cls.products = cls.temporary_directory / "products"
         cls.derived_data = cls.temporary_directory / "derived-data"
         cls.socket_path = cls.temporary_directory / "server.sock"
-        cls.cookie_root = cls.temporary_directory / "cookies"
         subprocess.run(
             [
                 "xcodebuild",
@@ -59,7 +58,6 @@ class CurlSafariServerTests(unittest.TestCase):
         cls.environment.update(
             {
                 "CURL_SAFARI_SOCKET_PATH": str(cls.socket_path),
-                "CURL_SAFARI_ROOT_DIR": str(cls.cookie_root),
                 "CURL_SAFARI_CLIENT_TIMEOUT_SECONDS": "1",
             }
         )

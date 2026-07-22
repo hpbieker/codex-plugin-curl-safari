@@ -3,11 +3,35 @@ package main
 import (
 	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestRunCurlReadsCookieJarFromPipe(t *testing.T) {
+	received := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		cookie, err := request.Cookie("session")
+		if err != nil {
+			received <- ""
+		} else {
+			received <- cookie.Value
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	jar := "# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t0\tsession\tfrom-pipe\n"
+	if exitCode := runCurlWithCookieJar(jar, []string{"-sS", server.URL}); exitCode != 0 {
+		t.Fatalf("curl exited with status %d", exitCode)
+	}
+	if value := <-received; value != "from-pipe" {
+		t.Fatalf("unexpected cookie value received by server: %q", value)
+	}
+}
 
 func TestRequestCookieJarUsesUnixSocket(t *testing.T) {
 	temporaryDirectory, err := os.MkdirTemp("/private/tmp", "curl-safari-go-test-")
@@ -44,12 +68,12 @@ func TestRequestCookieJarUsesUnixSocket(t *testing.T) {
 		}
 		serverError <- json.NewEncoder(connection).Encode(fetchResponse{
 			OK:        true,
-			Path:      "/private/tmp/curl-safari/example.com.cookies",
+			CookieJar: "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t0\tsession\tsecret\n",
 			ServerPID: 123,
 		})
 	}()
 
-	path, err := requestCookieJar(
+	jar, err := requestCookieJar(
 		"example.com",
 		"https://example.com/account",
 		600,
@@ -58,8 +82,8 @@ func TestRequestCookieJarUsesUnixSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/private/tmp/curl-safari/example.com.cookies" {
-		t.Fatalf("unexpected cookie jar path: %s", path)
+	if jar != "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t0\tsession\tsecret\n" {
+		t.Fatal("unexpected cookie jar contents")
 	}
 	if err := <-serverError; err != nil {
 		t.Fatal(err)
