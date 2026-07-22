@@ -59,6 +59,8 @@ another hostname.
 - Only `CurlSafariServer.app` has Full Disk Access.
 - The unprivileged CLI never reads Safari's cookie database.
 - The Unix socket is mode `0600` and verifies the client user ID.
+- Any process running as the same macOS user can connect to the helper while it
+  is running.
 - Cookies are selected for the request URL's host, path, and scheme.
 - Cookie data travels through the private socket and an anonymous pipe.
 - Cookie values are never written to disk by `curl-safari`.
