@@ -19,10 +19,9 @@ const (
 )
 
 type fetchRequest struct {
-	Op         string `json:"op"`
-	Domain     string `json:"domain"`
-	URL        string `json:"url,omitempty"`
-	TTLSeconds int    `json:"ttl_seconds"`
+	Op     string `json:"op"`
+	Domain string `json:"domain"`
+	URL    string `json:"url,omitempty"`
 }
 
 type fetchResponse struct {
@@ -88,8 +87,8 @@ func serverSocketPath() string {
 	return defaultSocketPath
 }
 
-func requestCookieJar(domain, requestURL string, ttl int, timeout time.Duration) (string, error) {
-	req := fetchRequest{Op: "fetch", Domain: domain, URL: requestURL, TTLSeconds: ttl}
+func requestCookieJar(domain, requestURL string, timeout time.Duration) (string, error) {
+	req := fetchRequest{Op: "fetch", Domain: domain, URL: requestURL}
 	socketPath := serverSocketPath()
 	connection, err := net.DialTimeout("unix", socketPath, timeout)
 	if err != nil {
@@ -168,7 +167,6 @@ func runCurlWithCookieJar(jar string, curlArgs []string) int {
 }
 
 func main() {
-	ttl := 600
 	fetchTimeout := 10 * time.Second
 	curlArgs := os.Args[1:]
 	if len(curlArgs) == 0 {
@@ -190,7 +188,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	jar, err := requestCookieJar(parsed.Hostname(), requestURL, ttl, fetchTimeout)
+	jar, err := requestCookieJar(parsed.Hostname(), requestURL, fetchTimeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
 		os.Exit(1)

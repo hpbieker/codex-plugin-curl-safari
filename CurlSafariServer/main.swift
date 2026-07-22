@@ -41,7 +41,6 @@ struct FetchRequest: Decodable {
     let op: String
     let domain: String?
     let url: String?
-    let ttl_seconds: Int?
 }
 
 func systemError(_ operation: String) -> ServerError {
@@ -184,7 +183,10 @@ func normalizeDomain(_ value: String) throws -> String {
 func domainMatches(cookieDomain: String, host: String) -> Bool {
     let cd = cookieDomain.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
     let host = host.lowercased()
-    return host == cd || host.hasSuffix("." + cd)
+    if cookieDomain.hasPrefix(".") {
+        return host == cd || host.hasSuffix("." + cd)
+    }
+    return host == cd
 }
 
 func pathMatches(cookiePath: String, requestPath: String) -> Bool {
@@ -220,17 +222,16 @@ func matchingCookies(
     }
 }
 
-func cookieExpiry(_ cookie: SafariCookie, ttlSeconds: Int) -> Int {
-    let ttlExpiry = Int(Date().timeIntervalSince1970) + ttlSeconds
-    if cookie.expiresAt <= 0 { return ttlExpiry }
-    return min(Int(cookie.expiresAt), ttlExpiry)
+func cookieExpiry(_ cookie: SafariCookie) -> Int {
+    if cookie.expiresAt <= 0 { return 0 }
+    return Int(cookie.expiresAt)
 }
 
 func boolText(_ value: Bool) -> String {
     value ? "TRUE" : "FALSE"
 }
 
-func cookieJar(_ cookies: [SafariCookie], ttlSeconds: Int) -> String {
+func cookieJar(_ cookies: [SafariCookie]) -> String {
     var lines = [
         "# Netscape HTTP Cookie File",
         "# Generated in memory by curl-safari-server.",
@@ -243,7 +244,7 @@ func cookieJar(_ cookies: [SafariCookie], ttlSeconds: Int) -> String {
             boolText(includeSubdomains),
             cookie.path,
             boolText(cookie.secure),
-            String(cookieExpiry(cookie, ttlSeconds: ttlSeconds)),
+            String(cookieExpiry(cookie)),
             cookie.name,
             cookie.value,
         ].joined(separator: "\t"))
@@ -279,25 +280,18 @@ func processRequest(_ data: Data) -> [String: Any] {
             ])
         }
         let cookieFile = try resolveCookieFile()
-        let ttl = request.ttl_seconds ?? 600
-        guard ttl > 0 else {
-            throw NSError(domain: "curl-safari-server", code: 7, userInfo: [
-                NSLocalizedDescriptionKey: "ttl_seconds must be greater than zero"
-            ])
-        }
         let cookies = try matchingCookies(
             parseBinaryCookies(cookieFile),
             domain: domain,
             requestURL: request.url
         )
-        let jar = cookieJar(cookies, ttlSeconds: ttl)
+        let jar = cookieJar(cookies)
         log("returned \(cookies.count) cookies for \(domain)")
         return [
             "ok": true,
             "domain": domain,
             "cookie_jar": jar,
             "count": cookies.count,
-            "ttl_seconds": ttl,
             "server_pid": Int32(getpid()),
         ]
     } catch {

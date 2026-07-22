@@ -76,7 +76,6 @@ func TestRequestCookieJarUsesUnixSocket(t *testing.T) {
 	jar, err := requestCookieJar(
 		"example.com",
 		"https://example.com/account",
-		600,
 		2*time.Second,
 	)
 	if err != nil {

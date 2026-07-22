@@ -98,5 +98,4 @@ It does not write or print cookie values.
 - cookie jars are domain scoped
 - cookie jars travel over the private socket and an anonymous pipe
 - cookie values are never written to disk by `curl-safari`
-- cookie expiry is capped at 600 seconds
 - normal CLI output never prints cookie values
