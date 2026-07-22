@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PLUGIN_DIR="${1:?usage: scripts/verify-release.sh PLUGIN_DIR [unsigned|signed]}"
-SIGNING_MODE="${2:-unsigned}"
+PLUGIN_DIR="${1:?usage: scripts/verify-release.sh PLUGIN_DIR [adhoc|development|distribution]}"
+SIGNING_MODE="${2:-adhoc}"
 
 required_paths=(
   ".codex-plugin/plugin.json"
@@ -53,12 +53,20 @@ done
 
 "$PLUGIN_DIR/bin/curl-safari" --version >/dev/null
 
-if [[ "$SIGNING_MODE" == signed ]]; then
+if [[ "$SIGNING_MODE" == development ]]; then
+  codesign --verify --deep --strict --verbose=2 "$PLUGIN_DIR/CurlSafariServer.app"
+  expected_team="$(sed -n '1p' "$(cd "$(dirname "$0")/.." && pwd)/.signing-team")"
+  actual_team="$(codesign -dv --verbose=4 "$PLUGIN_DIR/CurlSafariServer.app" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+  [[ "$actual_team" == "$expected_team" ]] || {
+    echo "error: app team $actual_team does not match .signing-team $expected_team" >&2
+    exit 1
+  }
+elif [[ "$SIGNING_MODE" == distribution ]]; then
   codesign --verify --deep --strict --verbose=2 "$PLUGIN_DIR/CurlSafariServer.app"
   codesign --verify --strict --verbose=2 "$PLUGIN_DIR/bin/curl-safari"
   xcrun stapler validate "$PLUGIN_DIR/CurlSafariServer.app"
-elif [[ "$SIGNING_MODE" != unsigned ]]; then
-  echo "error: signing mode must be unsigned or signed" >&2
+elif [[ "$SIGNING_MODE" != adhoc ]]; then
+  echo "error: signing mode must be adhoc, development, or distribution" >&2
   exit 1
 fi
 

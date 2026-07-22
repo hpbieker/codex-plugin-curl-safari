@@ -20,4 +20,4 @@ xcrun notarytool submit "$NOTARY_ARCHIVE" \
   --wait
 
 xcrun stapler staple "$STAGE_DIR/CurlSafariServer.app"
-"$ROOT_DIR/scripts/verify-release.sh" "$STAGE_DIR" signed
+"$ROOT_DIR/scripts/verify-release.sh" "$STAGE_DIR" distribution

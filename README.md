@@ -137,15 +137,18 @@ Release builds require these GitHub Actions secrets:
 - `APPLE_APP_SPECIFIC_PASSWORD`: app-specific password for notarization
 - `APPLE_TEAM_ID`: 10-character Apple developer team ID
 
-To test the unsigned packaging flow locally:
+To build the release locally with the same signing setup as `build.sh`:
 
 ```bash
 scripts/build-release.sh 0.1.0
 scripts/package-release.sh 0.1.0
 ```
 
-The resulting files are written to `dist/`. Public releases are signed and
-notarized by the tag-triggered GitHub Actions workflow before packaging.
+When `.signing-team` exists, the app in the resulting ZIP is signed with that
+Apple Development team. Without `.signing-team`, the local release uses ad hoc
+signing. The resulting files are written to `dist/`. The tag-triggered GitHub
+Actions workflow can later replace the development signature with a Developer
+ID signature and notarize the release before packaging.
 
 ## License
 
