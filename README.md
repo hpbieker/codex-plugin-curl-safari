@@ -120,6 +120,33 @@ codex plugin add curl-safari@curl-safari-local
 Reinstall the plugin after changing its manifest, skill, or assets so Codex
 picks up the new cachebuster version.
 
+## Codex Plugin Releases
+
+Version tags such as `v0.1.0` build and publish a self-contained Codex plugin
+for macOS. The release ZIP contains the plugin manifest, skill, assets, a
+universal `curl-safari` CLI, and a universal `CurlSafariServer.app`.
+
+Release builds require these GitHub Actions secrets:
+
+- `APPLE_DEVELOPER_ID_APPLICATION_P12`: base64-encoded Developer ID
+  Application certificate and private key
+- `APPLE_CERTIFICATE_PASSWORD`: password for the exported certificate
+- `APPLE_DEVELOPER_ID_APPLICATION`: full signing identity, for example
+  `Developer ID Application: Example Name (ABCDE12345)`
+- `APPLE_ID`: Apple ID used for notarization
+- `APPLE_APP_SPECIFIC_PASSWORD`: app-specific password for notarization
+- `APPLE_TEAM_ID`: 10-character Apple developer team ID
+
+To test the unsigned packaging flow locally:
+
+```bash
+scripts/build-release.sh 0.1.0
+scripts/package-release.sh 0.1.0
+```
+
+The resulting files are written to `dist/`. Public releases are signed and
+notarized by the tag-triggered GitHub Actions workflow before packaging.
+
 ## License
 
 The code and documentation are licensed under the [MIT License](LICENSE). The
