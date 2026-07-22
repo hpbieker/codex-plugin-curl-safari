@@ -125,3 +125,7 @@ picks up the new cachebuster version.
 The code and documentation are licensed under the [MIT License](LICENSE). The
 official curl brand assets have separate terms described in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Support
+
+If `curl-safari` saves you time, you can [support the project on Ko-fi](https://ko-fi.com/hpbieker).
