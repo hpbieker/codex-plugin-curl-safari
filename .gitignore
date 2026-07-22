@@ -1,5 +1,6 @@
 .DS_Store
 .build/
+dist/
 bin/curl-safari
 CurlSafariServer.app/
 CurlSafariServer.swiftmodule/
