@@ -1,8 +1,10 @@
 # Curl Safari
 
-Use ordinary `curl` commands for websites where you are already logged in
-through Safari. `curl-safari` automatically supplies matching Safari cookies
-without giving Codex or other sandboxed clients Full Disk Access.
+Use ordinary `curl` commands on macOS for websites where you are already
+logged in through Safari. `curl-safari` automatically supplies matching Safari
+cookies without giving Codex or other sandboxed clients Full Disk Access.
+
+Requires macOS and Safari.
 
 ## Quick Start
 
