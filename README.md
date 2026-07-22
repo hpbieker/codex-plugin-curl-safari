@@ -18,6 +18,17 @@ Build the helper app and CLI:
 ./build.sh
 ```
 
+By default, the app uses ad hoc signing. To keep the app's signing identity
+stable across rebuilds, create a local `.signing-team` file containing your
+10-character Apple development team ID:
+
+```text
+ABCDE12345
+```
+
+`.signing-team` is ignored by Git. Without it, rebuilding the ad hoc-signed app
+may require Full Disk Access to be granted again.
+
 Give `CurlSafariServer.app` Full Disk Access:
 
 ```text
@@ -94,9 +105,8 @@ go test ./...
 python3 tests/test_server.py
 ```
 
-The Xcode target uses automatic Apple Development signing to keep the app
-identity stable across rebuilds. If the signing identity changes, macOS may
-require Full Disk Access to be granted again.
+When `.signing-team` exists, the Xcode target uses automatic Apple Development
+signing to keep the app identity stable across rebuilds.
 
 ## Codex Plugin Installation
 
