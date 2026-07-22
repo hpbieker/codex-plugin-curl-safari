@@ -119,3 +119,9 @@ codex plugin add curl-safari@curl-safari-local
 
 Reinstall the plugin after changing its manifest, skill, or assets so Codex
 picks up the new cachebuster version.
+
+## License
+
+The code and documentation are licensed under the [MIT License](LICENSE). The
+official curl brand assets have separate terms described in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
