@@ -4,65 +4,80 @@ Use ordinary `curl` commands on macOS for websites where you are already
 logged in through Safari. `curl-safari` automatically supplies matching Safari
 cookies without giving Codex or other sandboxed clients Full Disk Access.
 
-Requires macOS and Safari.
+## Requirements
 
-## Quick Start
+- macOS 14 or later
+- Safari
+- Xcode and Go for building from source
 
-```bash
-open -a "$PWD/CurlSafariServer.app"
-bin/curl-safari -L https://example.com/account
-```
+## Build and Setup
 
-Give `CurlSafariServer.app` Full Disk Access when setting it up for the first
-time. `curl-safari` supplies matching Safari cookies; it does not copy bearer
-tokens, localStorage, or other browser-only authentication.
-
-## Components
-
-- `CurlSafariServer.app`: privileged Swift server app. This is the only
-  process that reads Safari's `Cookies.binarycookies`. It accepts requests on
-  `/private/tmp/curl-safari.sock`.
-- `bin/curl-safari`: unprivileged Go CLI. It receives a domain-scoped cookie
-  jar through the Unix socket and pipes it directly to `curl` without writing
-  it to disk.
-- `cmd/curl-safari/`: Go source for the CLI.
-- `CurlSafariServer/`: Swift source and version-controlled `Info.plist`.
-- `CurlSafariServer.xcodeproj`: standard Xcode app project and shared scheme.
-
-## Build
+Build the helper app and CLI:
 
 ```bash
 ./build.sh
 ```
 
-Requires Xcode and Go. Xcode writes the app product directly to the stable
-`CurlSafariServer.app` path in the repository root; `build.sh` does not create
-the bundle or generate its `Info.plist`.
-
-The Xcode target uses automatic Apple Development signing to keep the app
-identity stable across rebuilds. If the signing identity changes, macOS may
-require Full Disk Access to be granted again.
-
-## Full Disk Access
-
-Give Full Disk Access to `CurlSafariServer.app` so it can read Safari's cookie
-database:
+Give `CurlSafariServer.app` Full Disk Access:
 
 ```text
 System Settings -> Privacy & Security -> Full Disk Access
 ```
 
-Use the app bundle, not the inner executable. macOS does not provide an API or
-automatic prompt for granting Full Disk Access; the user must enable it in
-System Settings.
+Add the app bundle, not its inner executable. macOS does not provide an
+automatic permission prompt for Full Disk Access.
 
-## Start Server
+Start the helper app:
 
 ```bash
 open -a "$PWD/CurlSafariServer.app"
 ```
 
-After rebuilding, restart the server so the running process uses the new
+## Usage
+
+Pass normal curl arguments to `curl-safari`:
+
+```bash
+bin/curl-safari -L https://www.finn.no/saved-searches
+```
+
+The CLI finds the request URL, requests matching Safari cookies from the local
+helper, and passes them directly to `curl` through an anonymous pipe. Cookie
+values are not written to disk or printed in normal output.
+
+Use regular `curl` when a page does not require Safari login cookies.
+
+## Authentication Limitations
+
+`curl-safari` supplies Safari cookies only. It does not copy bearer tokens,
+CSRF tokens, localStorage, JavaScript state, or other browser-only
+authentication. A login cookie for one hostname may not authenticate an API on
+another hostname.
+
+## Security
+
+- Only `CurlSafariServer.app` has Full Disk Access.
+- The unprivileged CLI never reads Safari's cookie database.
+- The Unix socket is mode `0600` and verifies the client user ID.
+- Cookies are selected for the request URL's host, path, and scheme.
+- Cookie data travels through the private socket and an anonymous pipe.
+- Cookie values are never written to disk by `curl-safari`.
+- There is no command for exporting all Safari cookies.
+
+## Development
+
+The implementation has two runtime components:
+
+- `CurlSafariServer.app`: local Swift helper app with Full Disk Access. It reads
+  Safari's `Cookies.binarycookies` and listens on
+  `/private/tmp/curl-safari.sock`.
+- `bin/curl-safari`: unprivileged Go CLI that passes ordinary curl arguments
+  through unchanged.
+
+Source code lives in `CurlSafariServer/` and `cmd/curl-safari/`. The socket path
+can be overridden with `CURL_SAFARI_SOCKET_PATH` for isolated testing.
+
+After rebuilding, restart the helper so the running process uses the new
 executable:
 
 ```bash
@@ -70,34 +85,25 @@ pkill -f "$PWD/CurlSafariServer.app/Contents/MacOS/curl-safari-server" || true
 open -a "$PWD/CurlSafariServer.app"
 ```
 
-The server creates `/private/tmp/curl-safari.sock` with mode `0600` and only
-accepts clients with the same effective user ID. Requests and responses are
-newline-delimited JSON, with one request per connection. The socket path can be
-overridden with `CURL_SAFARI_SOCKET_PATH` for isolated testing.
-
-## Curl
+Run the test suites with:
 
 ```bash
-bin/curl-safari -L https://www.finn.no/saved-searches
+go test ./...
+python3 tests/test_server.py
 ```
 
-`curl-safari` finds the request URL, asks the local server for a matching
-Safari cookie jar, and gives it to `curl` through an anonymous pipe:
+The Xcode target uses automatic Apple Development signing to keep the app
+identity stable across rebuilds. If the signing identity changes, macOS may
+require Full Disk Access to be granted again.
+
+## Codex Plugin Installation
+
+Register this repository as a local marketplace and install the plugin:
 
 ```bash
-curl -b /dev/fd/3 ...
+codex plugin marketplace add "$PWD"
+codex plugin add curl-safari@curl-safari-local
 ```
 
-It does not write or print cookie values.
-
-## Safety Shape
-
-- server is the only process that reads Safari cookies
-- only the server app needs Full Disk Access; the CLI does not
-- Unix socket is mode `0600` and verifies the client UID
-- no request or response files are used for client/server communication
-- no export-all command
-- cookie jars are domain scoped
-- cookie jars travel over the private socket and an anonymous pipe
-- cookie values are never written to disk by `curl-safari`
-- normal CLI output never prints cookie values
+Reinstall the plugin after changing its manifest, skill, or assets so Codex
+picks up the new cachebuster version.
