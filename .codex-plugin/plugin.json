@@ -1,6 +1,6 @@
 {
   "name": "curl-safari",
-  "version": "0.1.0+codex.20260722100159",
+  "version": "0.1.0+codex.20260722081903",
   "description": "Use curl with your existing Safari login.",
   "author": {
     "name": "Hans Petter Bieker"
@@ -21,6 +21,10 @@
     "capabilities": [
       "Read"
     ],
+    "brandColor": "#093754",
+    "composerIcon": "./assets/curl-symbol.svg",
+    "logo": "./assets/curl-symbol.svg",
+    "logoDark": "./assets/curl-white-symbol.svg",
     "defaultPrompt": [
       "Use curl with my existing Safari login to fetch this page.",
       "Use curl-safari to inspect this page where I am already logged in through Safari.",
