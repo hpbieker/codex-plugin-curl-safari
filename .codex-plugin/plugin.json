@@ -1,6 +1,6 @@
 {
   "name": "curl-safari",
-  "version": "0.1.0+codex.20261029181508",
+  "version": "0.1.0+codex.20261029181903",
   "description": "Use curl with your existing Safari login.",
   "author": {
     "name": "Hans Petter Bieker"

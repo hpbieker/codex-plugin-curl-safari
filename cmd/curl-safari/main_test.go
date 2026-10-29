@@ -6,12 +6,76 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestCLIForwardsAttachedURLToSystemCurl(t *testing.T) {
+	directory, err := os.MkdirTemp("/private/tmp", "curl-safari-cli-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	executable := filepath.Join(directory, "curl-safari")
+	if output, err := exec.Command("go", "build", "-o", executable, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build CLI: %v\n%s", err, output)
+	}
+	socketPath := filepath.Join(directory, "server.sock")
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	t.Setenv("CURL_SAFARI_SOCKET_PATH", socketPath)
+	serverError := make(chan error, 1)
+	go func() {
+		connection, err := listener.Accept()
+		if err != nil {
+			serverError <- err
+			return
+		}
+		defer connection.Close()
+		var request fetchRequest
+		if err := json.NewDecoder(connection).Decode(&request); err != nil {
+			serverError <- err
+			return
+		}
+		if request.Domain != "127.0.0.1" || request.CookieScope != "host" {
+			serverError <- &unexpectedRequestError{request: request}
+			return
+		}
+		serverError <- json.NewEncoder(connection).Encode(fetchResponse{
+			OK: true, CookieScope: "host",
+			CookieJar: "# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t0\tsession\tsynthetic\n",
+		})
+	}()
+	received := make(chan http.Header, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		received <- request.Header.Clone()
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	cmd := exec.Command(executable, "-q", "-sS", "--max-time", "5", "--noproxy", "*",
+		"--referer", "https://another.invalid/", "--url="+server.URL)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run installed-style CLI: %v\n%s", err, output)
+	}
+	if err := <-serverError; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case headers := <-received:
+		if headers.Get("Referer") != "https://another.invalid/" || headers.Get("Cookie") != "session=synthetic" {
+			t.Fatal("CLI did not forward the expected referer and cookie")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("CLI did not reach the HTTP server")
+	}
+}
 
 func TestRedirectCookiesRespectHostPathAndSecure(t *testing.T) {
 	const host = "account.example.test"

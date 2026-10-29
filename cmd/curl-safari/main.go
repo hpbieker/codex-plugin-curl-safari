@@ -159,9 +159,14 @@ func curlOptionArguments() (map[string]bool, error) {
 }
 
 func findURL(args []string) (string, error) {
+	requestURL, _, err := findURLAndArgs(args)
+	return requestURL, err
+}
+
+func findURLAndArgs(args []string) (string, []string, error) {
 	options, err := curlOptionArguments()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	positionalOnly := false
 	for index := 0; index < len(args); index++ {
@@ -178,17 +183,24 @@ func findURL(args []string) (string, error) {
 				known = baseKnown && !baseTakesArgument
 			}
 			if !known {
-				return "", fmt.Errorf("unrecognized curl option: %s", option)
+				return "", nil, fmt.Errorf("unrecognized curl option: %s", option)
 			}
 			if takesArgument && !attached {
 				index++
 				if index == len(args) {
-					return "", fmt.Errorf("curl option %s requires a value", option)
+					return "", nil, fmt.Errorf("curl option %s requires a value", option)
 				}
 				value = args[index]
 			}
 			if option != "--url" {
 				continue
+			}
+			if attached {
+				// Older macOS curl versions require --url and its value as
+				// separate arguments. Do not rewrite option values or data.
+				normalized := append([]string{}, args[:index]...)
+				normalized = append(normalized, "--url", value)
+				args = append(normalized, args[index+1:]...)
 			}
 			arg = value
 		} else if !positionalOnly && strings.HasPrefix(arg, "-") && arg != "-" {
@@ -198,13 +210,13 @@ func findURL(args []string) (string, error) {
 				option := "-" + arg[offset:offset+1]
 				takesArgument, known := options[option]
 				if !known {
-					return "", fmt.Errorf("unrecognized curl option: %s", option)
+					return "", nil, fmt.Errorf("unrecognized curl option: %s", option)
 				}
 				if takesArgument {
 					if offset == len(arg)-1 {
 						index++
 						if index == len(args) {
-							return "", fmt.Errorf("curl option %s requires a value", option)
+							return "", nil, fmt.Errorf("curl option %s requires a value", option)
 						}
 					}
 					break
@@ -213,11 +225,11 @@ func findURL(args []string) (string, error) {
 			continue
 		}
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
-			return arg, nil
+			return arg, args, nil
 		}
-		return "", errors.New("the first request URL must be an explicit http(s) URL")
+		return "", nil, errors.New("the first request URL must be an explicit http(s) URL")
 	}
-	return "", errors.New("could not find an http(s) URL in curl arguments")
+	return "", nil, errors.New("could not find an http(s) URL in curl arguments")
 }
 
 func cookieCurlArgs(args []string) []string {
@@ -275,7 +287,7 @@ func main() {
 		return
 	}
 
-	requestURL, err := findURL(curlArgs)
+	requestURL, curlArgs, err := findURLAndArgs(curlArgs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
 		os.Exit(2)
