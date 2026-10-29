@@ -29,7 +29,7 @@ jobs:
       - name: Run tests
         run: |
           go test ./...
-          python3 tests/test_server.py
+          python3 -m unittest discover -s tests
 
       - name: Build plugin
         run: scripts/build-release.sh "$VERSION"

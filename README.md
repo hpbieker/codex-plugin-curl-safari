@@ -87,9 +87,10 @@ account, including when you use curl options that change remote data.
 
 ## Privacy and account access
 
-The helper reads Safari's `Cookies.binarycookies` and selects cookies for the
-requested host, path, and scheme. The CLI receives them through a Unix socket
-at `/private/tmp/curl-safari.sock` and passes them to curl through an anonymous
+The helper reads Safari's `Cookies.binarycookies` and selects unexpired cookies
+that match the initial request host. Curl checks their domain, path, and Secure
+attributes for each request, including redirects. The CLI receives them through
+a Unix socket at `/private/tmp/curl-safari.sock` and passes them to curl through an anonymous
 pipe. The tool does not ask for your website passwords.
 
 The socket has mode `0600`, and the helper checks that clients have the same
@@ -108,13 +109,16 @@ content read by Codex becomes available to the conversation.
   and other browser state are not extracted.
 - A login on one hostname may not authenticate an API on another hostname.
   Use the API URL itself when checking API access.
-- Cookie selection uses the initial URL. Redirects to another host or path can
-  require cookies that were not included in the initial selection.
-- The CLI currently detects the first standalone `http://` or `https://`
-  argument. Put the target URL before other URL-valued arguments; the
-  `--url=https://…` form is not supported.
-- The curl `-q` option currently does not suppress loading `.curlrc` through
-  this wrapper.
+- Redirects can use cookies matching the initial host, with domain, path, and
+  Secure restrictions enforced by curl. Host-only cookies stay on their host;
+  domain cookies can apply to other hosts within their original domain.
+  Safari cookies belonging only to a new redirect host are not fetched.
+- Cookie lookup uses the first explicit HTTP(S) request URL, including
+  `--url URL` and `--url=URL`. URLs supplied through curl configuration files
+  are not inspected, and additional transfers do not trigger new cookie lookups.
+- Options are recognized using the installed curl's `--help all` output.
+  Unrecognized options before the first request URL are rejected rather than
+  guessing which arguments contain URLs.
 - Safari profiles and private browsing are not explicitly supported. The
   helper reads the standard Safari cookie-file locations.
 
@@ -132,6 +136,9 @@ If a request returns `401` or `403`, confirm that you are signed in to the
 requested hostname in Safari. The endpoint may also require authentication
 headers or browser state that this tool does not supply.
 
+If the CLI reports that the helper does not support redirect cookies, rebuild
+and restart the helper app so both components use the updated protocol.
+
 ## Development
 
 The Swift helper source is in `CurlSafariServer/`; the Go CLI is in
@@ -142,11 +149,13 @@ Run the test suites from the repository root:
 
 ```sh
 go test ./...
-python3 tests/test_server.py
+python3 -m unittest discover -s tests
 ```
 
-The tests use local servers and isolated sockets. The Python suite builds the
-Swift helper and requires Xcode. Set `CURL_SAFARI_SOCKET_PATH` in both client
+The tests use synthetic cookie files, local HTTP/HTTPS servers, and isolated
+sockets. They do not read your Safari cookies or contact live websites. The
+Python suite builds the Swift helper and cookie test driver and requires Xcode.
+Set `CURL_SAFARI_SOCKET_PATH` in both client
 and helper environments to use a different socket for development.
 
 For a stable signing identity across rebuilds, create a Git-ignored

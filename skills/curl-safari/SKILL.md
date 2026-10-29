@@ -59,7 +59,12 @@ pkill -f curl-safari-server; open -a "$CURL_SAFARI_ROOT/CurlSafariServer.app"
 
 The client receives a domain-scoped cookie jar from the server over
 `/private/tmp/curl-safari.sock` and pipes it to `curl` without writing cookie
-values to disk. The server creates the socket with mode `0600` and rejects
+values to disk. The CLI requests all unexpired cookies matching the initial
+host, preserving their domain, path, and Secure attributes so curl can select
+cookies separately for each redirect. It does not fetch cookies belonging only
+to a new redirect host. If the CLI reports that the helper does not support
+redirect cookies, rebuild and restart the helper app.
+The server creates the socket with mode `0600` and rejects
 clients from other user IDs. If
 the CLI reports that the socket is missing or refuses the connection, start or
 restart `CurlSafariServer.app`.

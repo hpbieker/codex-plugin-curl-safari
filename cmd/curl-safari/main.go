@@ -19,16 +19,18 @@ const (
 )
 
 type fetchRequest struct {
-	Op     string `json:"op"`
-	Domain string `json:"domain"`
-	URL    string `json:"url,omitempty"`
+	Op          string `json:"op"`
+	Domain      string `json:"domain"`
+	URL         string `json:"url,omitempty"`
+	CookieScope string `json:"cookie_scope,omitempty"`
 }
 
 type fetchResponse struct {
-	OK        bool   `json:"ok"`
-	CookieJar string `json:"cookie_jar,omitempty"`
-	Error     string `json:"error,omitempty"`
-	ServerPID int    `json:"server_pid,omitempty"`
+	OK          bool   `json:"ok"`
+	CookieJar   string `json:"cookie_jar,omitempty"`
+	Error       string `json:"error,omitempty"`
+	ServerPID   int    `json:"server_pid,omitempty"`
+	CookieScope string `json:"cookie_scope,omitempty"`
 }
 
 func usage() {
@@ -88,7 +90,7 @@ func serverSocketPath() string {
 }
 
 func requestCookieJar(domain, requestURL string, timeout time.Duration) (string, error) {
-	req := fetchRequest{Op: "fetch", Domain: domain, URL: requestURL}
+	req := fetchRequest{Op: "fetch", Domain: domain, URL: requestURL, CookieScope: "host"}
 	socketPath := serverSocketPath()
 	connection, err := net.DialTimeout("unix", socketPath, timeout)
 	if err != nil {
@@ -121,16 +123,112 @@ func requestCookieJar(domain, requestURL string, timeout time.Duration) (string,
 	if resp.CookieJar == "" {
 		return "", errors.New("server returned empty cookie jar")
 	}
+	if resp.CookieScope != "host" {
+		return "", errors.New("helper does not support redirect cookies; rebuild and restart CurlSafariServer.app")
+	}
 	return resp.CookieJar, nil
 }
 
-func findURL(args []string) string {
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
-			return arg
+// Read option arity from the curl we will actually invoke, so new options do
+// not require a second, potentially outdated option list in this wrapper.
+func curlOptionArguments() (map[string]bool, error) {
+	output, err := exec.Command("curl", "-q", "--help", "all").Output()
+	if err != nil {
+		return nil, fmt.Errorf("could not read curl options: %w", err)
+	}
+	options := make(map[string]bool)
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		for index, field := range fields {
+			if !strings.HasPrefix(field, "--") {
+				continue
+			}
+			// Most parameters use <value>; proxies use [protocol://]host[:port].
+			takesArgument := index+1 < len(fields) && (strings.HasPrefix(fields[index+1], "<") || strings.HasPrefix(fields[index+1], "["))
+			options[field] = takesArgument
+			if index == 1 && strings.HasSuffix(fields[0], ",") {
+				options[strings.TrimSuffix(fields[0], ",")] = takesArgument
+			}
+			break
 		}
 	}
-	return ""
+	if !options["--url"] || !options["--data"] {
+		return nil, errors.New("could not recognize curl option help")
+	}
+	return options, nil
+}
+
+func findURL(args []string) (string, error) {
+	options, err := curlOptionArguments()
+	if err != nil {
+		return "", err
+	}
+	positionalOnly := false
+	for index := 0; index < len(args); index++ {
+		arg := args[index]
+		if !positionalOnly && arg == "--" {
+			positionalOnly = true
+			continue
+		}
+		if !positionalOnly && strings.HasPrefix(arg, "--") {
+			option, value, attached := strings.Cut(arg, "=")
+			takesArgument, known := options[option]
+			if !known && strings.HasPrefix(option, "--no-") {
+				baseTakesArgument, baseKnown := options["--"+strings.TrimPrefix(option, "--no-")]
+				known = baseKnown && !baseTakesArgument
+			}
+			if !known {
+				return "", fmt.Errorf("unrecognized curl option: %s", option)
+			}
+			if takesArgument && !attached {
+				index++
+				if index == len(args) {
+					return "", fmt.Errorf("curl option %s requires a value", option)
+				}
+				value = args[index]
+			}
+			if option != "--url" {
+				continue
+			}
+			arg = value
+		} else if !positionalOnly && strings.HasPrefix(arg, "-") && arg != "-" {
+			// A short option taking a value consumes the rest of its token,
+			// or the following token when no attached value is present.
+			for offset := 1; offset < len(arg); offset++ {
+				option := "-" + arg[offset:offset+1]
+				takesArgument, known := options[option]
+				if !known {
+					return "", fmt.Errorf("unrecognized curl option: %s", option)
+				}
+				if takesArgument {
+					if offset == len(arg)-1 {
+						index++
+						if index == len(args) {
+							return "", fmt.Errorf("curl option %s requires a value", option)
+						}
+					}
+					break
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
+			return arg, nil
+		}
+		return "", errors.New("the first request URL must be an explicit http(s) URL")
+	}
+	return "", errors.New("could not find an http(s) URL in curl arguments")
+}
+
+func cookieCurlArgs(args []string) []string {
+	prefix := []string{}
+	// curl checks only its first argument for -q/--disable, including -q
+	// followed by other short options. Preserve that check before inserting -b.
+	if len(args) > 0 && (strings.HasPrefix(args[0], "-q") || args[0] == "--disable") {
+		prefix = append(prefix, "-q")
+	}
+	prefix = append(prefix, "-b", "/dev/fd/3")
+	return append(prefix, args...)
 }
 
 func runCurlWithCookieJar(jar string, curlArgs []string) int {
@@ -141,7 +239,7 @@ func runCurlWithCookieJar(jar string, curlArgs []string) int {
 	}
 	defer reader.Close()
 
-	cmd := exec.Command("curl", append([]string{"-b", "/dev/fd/3"}, curlArgs...)...)
+	cmd := exec.Command("curl", cookieCurlArgs(curlArgs)...)
 	cmd.ExtraFiles = []*os.File{reader}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -177,9 +275,9 @@ func main() {
 		return
 	}
 
-	requestURL := findURL(curlArgs)
-	if requestURL == "" {
-		fmt.Fprintln(os.Stderr, "curl-safari: could not find an http(s) URL in curl arguments")
+	requestURL, err := findURL(curlArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "curl-safari: %v\n", err)
 		os.Exit(2)
 	}
 	parsed, err := url.Parse(requestURL)

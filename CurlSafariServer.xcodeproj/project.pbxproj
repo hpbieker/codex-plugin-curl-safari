@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		B10000000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* main.swift */; };
+		B10000000000000000000012 /* Cookies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Cookies.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000002 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000004 /* CurlSafariServer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CurlSafariServer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000013 /* Cookies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cookies.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,6 +41,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000002 /* main.swift */,
+				B10000000000000000000013 /* Cookies.swift */,
 				B10000000000000000000003 /* Info.plist */,
 			);
 			path = CurlSafariServer;
@@ -110,6 +113,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B10000000000000000000001 /* main.swift in Sources */,
+				B10000000000000000000012 /* Cookies.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -122,6 +122,11 @@ class CurlSafariServerTests(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertIn("unsupported operation", response["error"])
 
+    def test_unknown_cookie_scope_is_rejected_before_reading_cookies(self) -> None:
+        response = self.request({"op": "fetch", "domain": "example.test", "cookie_scope": "all"})
+        self.assertFalse(response["ok"])
+        self.assertIn("unsupported cookie scope", response["error"])
+
     def test_server_refuses_to_replace_regular_file(self) -> None:
         blocked_path = self.temporary_directory / "not-a-socket"
         blocked_path.write_text("keep me", encoding="utf-8")
